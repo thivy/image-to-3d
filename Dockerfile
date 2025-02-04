@@ -1,43 +1,30 @@
-# Use the official CUDA image with Ubuntu 22.04 as the base image
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+# Use NVIDIA CUDA runtime as the base image for GPU support
+FROM nvidia/cuda:11.7.1-cudnn8-runtime-ubuntu20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python 3.8, pip, and system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.8 \
+    python3-pip \
+    build-essential \
+    libjpeg-dev \
+    libpng-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install required Python packages
+RUN pip3 install --upgrade pip && \
+    pip3 install fastapi uvicorn pillow trellis
 
 # Set the working directory
 WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Conda
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
-    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
-    rm ~/miniconda.sh && \
-    /opt/conda/bin/conda clean --all --yes && \
-    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
-    echo "conda activate base" >> ~/.bashrc
-
-# Add Conda to PATH
-ENV PATH=/opt/conda/bin:$PATH
-
-# Clone the repository and submodules
-RUN git clone --recurse-submodules https://github.com/microsoft/TRELLIS.git /app
-
-# Set up the Conda environment and install dependencies
-RUN . /opt/conda/etc/profile.d/conda.sh && \
-    cd /app && \
-    ./setup.sh --new-env --basic --xformers --flash-attn --diffoctreerast --spconv --mipgaussian --kaolin --nvdiffrast
-
-# Install FastAPI and Uvicorn
-RUN pip install fastapi uvicorn
-
-# Copy the API script
 COPY app.py /app/app.py
+# Copy the entire project
+COPY . /app
 
-# Set the entrypoint
-ENTRYPOINT ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
-
-# Expose the port
+# Expose the API port
 EXPOSE 8000
+
+# Start the FastAPI application using Uvicorn
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
